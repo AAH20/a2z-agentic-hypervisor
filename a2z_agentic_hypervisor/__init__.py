@@ -4,6 +4,8 @@ Apex Growth Systems LLC - a2zsoc.com
 NVIDIA Inception Program Flagship Architecture
 """
 
+from a2z_agentic_hypervisor.adapters.hermes import HermesHypervisorMiddleware
+from a2z_agentic_hypervisor.adapters.langchain import GuardedToolNode
 from a2z_agentic_hypervisor.core.action_ledger import ActionLedger, ActionReceipt
 from a2z_agentic_hypervisor.core.blast_sentinel import (
     BlastRadiusExceededError,
@@ -28,7 +30,7 @@ from a2z_agentic_hypervisor.redteam.bench_redteam import (
     generate_benchmark_vectors,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Apex Growth Systems LLC <aah@a2zsoc.com>"
 __homepage__ = "https://a2zsoc.com"
 
@@ -50,5 +52,7 @@ __all__ = [
     "MorpheusTelemetryEmitter",
     "RedTeamRunner",
     "generate_benchmark_vectors",
+    "GuardedToolNode",
+    "HermesHypervisorMiddleware",
     "__version__",
 ]

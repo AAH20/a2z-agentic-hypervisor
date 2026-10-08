@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "a2z-agentic-hypervisor"
-version = "1.0.0"
+version = "1.1.0"
 description = "Hardware-Accelerated Autonomous Agent Cyber Defense Hypervisor and Atomic Rollback Engine"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,6 +40,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.scripts]
+a2z-hypervisor = "a2z_agentic_hypervisor.cli:main"
+
 [project.optional-dependencies]
 nvidia = [
     "requests>=2.28.0"
@@ -47,6 +50,9 @@ nvidia = [
 test = [
     "pytest>=7.0.0"
 ]
+
+[tool.setuptools.packages.find]
+include = ["a2z_agentic_hypervisor*"]
 
 [project.urls]
 Homepage = "https://a2zsoc.com"
