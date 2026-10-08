@@ -52,22 +52,28 @@ Security architects must balance three competing requirements:
 
 ```mermaid
 flowchart TD
+    classDef hostLayer fill:#fef2f2,stroke:#ef4444,stroke-width:1.5px,color:#991b1b;
+    classDef hardwareBarrier fill:#f1f5f9,stroke:#64748b,stroke-width:2px,stroke-dasharray: 5 5,color:#334155;
+    classDef dpuCore fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    classDef accelFabric fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#9a3412;
+    classDef infraFabric fill:#eff6ff,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a;
+
     subgraph Host_Compute ["Untrusted Host Domain: DGX H100 / Enterprise Compute"]
-        AGENT_POD["Autonomous AI Agent Container<br/>(LangChain DeepAgents / Nous Hermes)"]
-        LOCAL_TOOL_NODE["GuardedToolNode Proxy<br/>(In-Line Hoare Pre-Condition Validator)"]
+        AGENT_POD["Autonomous AI Agent Container<br/><b>LangChain DeepAgents / Nous Hermes</b>"]:::hostLayer
+        LOCAL_TOOL_NODE["GuardedToolNode Proxy<br/><b>In-Line Hoare Pre-Condition Validator</b>"]:::hostLayer
         AGENT_POD --> LOCAL_TOOL_NODE
     end
 
-    subgraph PCIe_Bus ["PCIe Gen 5 Enclave Boundary"]
-        PCIE_LINK["PCIe Physical Isolation & DMA Barrier"]
+    subgraph PCIe_Bus ["Physical PCIe Gen 5 Enclave Boundary"]
+        PCIE_LINK["PCIe Physical Isolation & DMA Barrier"]:::hardwareBarrier
     end
 
     subgraph BlueField_DPU ["Trusted Hardware Domain: NVIDIA BlueField-3 DPU (DOCA Core)"]
-        DOCA_FIREWALL["DOCA Flow Packet & eBPF Telemetry Engine"]
-        HYPERVISOR_CORE["A2Z Hypervisor Sovereign Daemon"]
-        BLAST_ENGINE["Topological Blast-Radius Sentinel"]
-        ROLLBACK_ENGINE["LIFO Compensatory Rollback Journal"]
-        ACTION_LEDGER["Immutable SHA-256 Merkle Vault"]
+        DOCA_FIREWALL["DOCA Flow Packet & eBPF Telemetry Engine"]:::dpuCore
+        HYPERVISOR_CORE["A2Z Hypervisor Sovereign Daemon"]:::dpuCore
+        BLAST_ENGINE["Topological Blast-Radius Sentinel"]:::dpuCore
+        ROLLBACK_ENGINE["LIFO Compensatory Rollback Journal"]:::dpuCore
+        ACTION_LEDGER["Immutable SHA-256 Merkle Vault"]:::dpuCore
         
         DOCA_FIREWALL --> HYPERVISOR_CORE
         HYPERVISOR_CORE --> BLAST_ENGINE
@@ -76,14 +82,14 @@ flowchart TD
     end
 
     subgraph NVIDIA_Acceleration_Pod ["Local Acceleration Fabrics"]
-        NIM_CONTAINER["Local NVIDIA NIM (Llama-3-70B / Mistral)<br/>Latency SLA: < 15 ms"]
-        NEMO_RAILS["NVIDIA NeMo Guardrails Engine"]
-        MORPHEUS_GNN["NVIDIA Morpheus Cyber AI Engine<br/>Streaming Anomaly Classification"]
-        CUGRAPH_ACCEL["NVIDIA cuGraph GPU Acceleration"]
+        NIM_CONTAINER["Local NVIDIA NIM (Llama-3-70B / Mistral)<br/><b>Latency SLA: < 15 ms</b>"]:::accelFabric
+        NEMO_RAILS["NVIDIA NeMo Guardrails Engine"]:::accelFabric
+        MORPHEUS_GNN["NVIDIA Morpheus Cyber AI Engine<br/><b>Streaming Anomaly Classification</b>"]:::accelFabric
+        CUGRAPH_ACCEL["NVIDIA cuGraph GPU Acceleration"]:::accelFabric
     end
 
     subgraph Enterprise_Target ["Infrastructure Fabric"]
-        PROD_INFRA["Production Target: K8s / Bare-Metal / Databases"]
+        PROD_INFRA["Production Target: K8s / Bare-Metal / Databases"]:::infraFabric
     end
 
     LOCAL_TOOL_NODE ==> PCIE_LINK
@@ -91,10 +97,10 @@ flowchart TD
 
     HYPERVISOR_CORE <==> NIM_CONTAINER & NEMO_RAILS
     BLAST_ENGINE <==> CUGRAPH_ACCEL
-    DOCA_FIREWALL -. "Streaming Telemetry" .-> MORPHEUS_GNN
+    DOCA_FIREWALL -. Streaming Telemetry .-> MORPHEUS_GNN
 
-    HYPERVISOR_CORE -- "Approved Tool Mutation" --> PROD_INFRA
-    ROLLBACK_ENGINE -- "LIFO Compensatory Reversal" --> PROD_INFRA
+    HYPERVISOR_CORE -- Approved Tool Mutation --> PROD_INFRA
+    ROLLBACK_ENGINE -- LIFO Compensatory Reversal --> PROD_INFRA
 ```
 
 ---

@@ -23,26 +23,54 @@
 
 Enterprise deployments of autonomous AI agents (**LangChain DeepAgents**, **Nous Research Hermes**, **Claude Computer Use**, **CrewAI**, **AutoGen**) introduce a severe architectural failure domain: **agents operate as uncontained, privileged runtimes issuing arbitrary shell commands, SQL mutations, and infrastructure edits without transactional rollback containment.**
 
-```
-                     +---------------------------------------+
-                     |  Autonomous Agent (LangChain/Hermes)  |
-                     +---------------------------------------+
-                                        |
-                            Proposed Mutating Tool Call
-                                        v
-+-----------------------------------------------------------------------------------+
-|                        A2Z_AGENTIC_HYPERVISOR (a2zsoc.com)                        |
-|                                                                                   |
-|  [Hoare Invariant]  ->  [Topological Blast]  ->  [LIFO Rollback]  -> [SHA-256 Merkle] |
-|     Validator               Sentinel                Journal             Ledger     |
-+-----------------------------------------------------------------------------------+
-             |                                                  |
-     [Pre-Condition Trip]                               [Verified Mutation]
-             v                                                  v
-+---------------------------+                      +---------------------------+
-|  Compensatory Rollback    |                      |  Target Infrastructure    |
-|  100% Zero Leaked State   |                      |  (K8s, Bare-Metal DGX)    |
-+---------------------------+                      +---------------------------+
+```mermaid
+flowchart TD
+    classDef agentPlane fill:#f8fafc,stroke:#94a3b8,stroke-width:1px,color:#0f172a;
+    classDef hypervisor fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#9a3412;
+    classDef safetyEngine fill:#ffffff,stroke:#fdba74,stroke-width:1px,color:#7c2d12;
+    classDef failureSink fill:#fef2f2,stroke:#ef4444,stroke-width:1.5px,color:#991b1b;
+    classDef successSink fill:#f0fdf4,stroke:#22c55e,stroke-width:1.5px,color:#166534;
+    classDef ledgerVault fill:#f5f3ff,stroke:#8b5cf6,stroke-width:1.5px,color:#5b21b6;
+
+    subgraph AGENT_DOMAIN ["UNTRUSTED HOST EXECUTION PLANE"]
+        AGENT["Autonomous AI Agent Runtime<br/><b>LangChain DeepAgents / Nous Hermes / Claude</b>"]:::agentPlane
+        MUTATION_REQUEST["Proposed Mutating Trajectory<br/><code>bash_exec / patch_k8s / execute_sql</code>"]:::agentPlane
+    end
+
+    subgraph HYPERVISOR_CONTAINMENT ["A2Z AGENTIC HYPERVISOR BOUNDARY (a2zsoc.com)"]
+        INTERCEPTOR["In-Line Tool Interceptor Proxy<br/><b>Hoare Pre-Condition Gate (< 55 µs)</b>"]:::hypervisor
+        
+        subgraph VALIDATION_MESH ["In-Flight Verification Mesh"]
+            HOARE_GATE["Semantic & Syntax Validator<br/><code>Regex Invariants & AST Audit</code>"]:::safetyEngine
+            BLAST_GATE["Topological Blast Sentinel<br/><code>Attenuated Reachability ≤ 25.0</code>"]:::safetyEngine
+            NIM_GATE["NVIDIA NIM Microservice<br/><code>Semantic Intent Inspection (< 15 ms)</code>"]:::safetyEngine
+        end
+        
+        JOURNAL["Compensatory Rollback Journal<br/><b>LIFO Inverse Transaction Log</b>"]:::hypervisor
+    end
+
+    subgraph RESOLUTION_DOMAINS ["STATE RESOLUTION & INFRASTRUCTURE DOMAINS"]
+        ROLLBACK["Atomic Compensatory Reversal DAG<br/><b>100% Rollback Fidelity | 0 Leaked State</b>"]:::failureSink
+        TARGET_INFRA["Production Infrastructure Fabric<br/><b>Bare-Metal DGX H100 / K8s / Production DB</b>"]:::successSink
+        LEDGER["SHA-256 ActionLedger Vault<br/><b>Immutable Merkle Chain (191k rcpt/sec)</b>"]:::ledgerVault
+    end
+
+    AGENT -->|Dispatch Tool Call| MUTATION_REQUEST
+    MUTATION_REQUEST ==>|Intercept Before OS Syscall| INTERCEPTOR
+
+    INTERCEPTOR --> HOARE_GATE
+    HOARE_GATE --> BLAST_GATE
+    BLAST_GATE --> NIM_GATE
+    
+    HOARE_GATE -.->|Security Breach Detected| ROLLBACK
+    BLAST_GATE -.->|Blast Radius Exceeded| ROLLBACK
+    NIM_GATE -.->|Adversarial Intent Tripped| ROLLBACK
+
+    NIM_GATE ===>|Pre-Conditions Verified| JOURNAL
+    JOURNAL -->|Dispatch Mutating Action| TARGET_INFRA
+    JOURNAL -->|Emit Non-Repudiable Receipt| LEDGER
+
+    TARGET_INFRA -.->|Execution Fault Occurred| ROLLBACK
 ```
 
 Traditional enterprise security tools fail completely:
@@ -56,32 +84,37 @@ Traditional enterprise security tools fail completely:
 
 ```mermaid
 flowchart TD
+    classDef layer1 fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,color:#0f172a;
+    classDef layer2 fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#14532d;
+    classDef layer3 fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#9a3412;
+    classDef layer4 fill:#eff6ff,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a;
+
     subgraph Agent_Plane ["Layer 1: Autonomous Agent Ingestion Plane"]
-        AGENT_INPUT["User Prompt / Enterprise Task Dispatch"]
-        AGENT_CORE["Autonomous Agent Runtime<br/>(LangChain DeepAgents / Nous Hermes / Claude)"]
-        TOOL_INVOCATION["Proposed Tool Action Trajectory<br/>(shell, file_write, k8s_patch, sql_exec)"]
+        AGENT_INPUT["User Prompt / Enterprise Task Dispatch"]:::layer1
+        AGENT_CORE["Autonomous Agent Runtime<br/><b>LangChain DeepAgents / Nous Hermes / Claude</b>"]:::layer1
+        TOOL_INVOCATION["Proposed Tool Action Trajectory<br/><code>shell, file_write, k8s_patch, sql_exec</code>"]:::layer1
     end
 
     subgraph NVIDIA_Acceleration ["Layer 2: NVIDIA Inception Acceleration Fabric"]
-        NIM_GATEWAY["NVIDIA NIM Microservices<br/>(Local Llama-3-70B / Mistral NIM - Sub-15ms)"]
-        NEMO_RAILS["NVIDIA NeMo Guardrails<br/>(Semantic Jailbreak & Injection Interceptor)"]
-        MORPHEUS_PIPELINE["NVIDIA Morpheus Cyber Pipeline<br/>(Real-Time Streaming Anomaly Classification)"]
-        CUGRAPH_OPT["NVIDIA cuGraph & cuOpt<br/>(GPU Causal Graph Reachability Engine)"]
+        NIM_GATEWAY["NVIDIA NIM Microservices<br/><b>Local Llama-3-70B / Mistral NIM (< 15 ms)</b>"]:::layer2
+        NEMO_RAILS["NVIDIA NeMo Guardrails<br/><b>Semantic Jailbreak & Injection Interceptor</b>"]:::layer2
+        MORPHEUS_PIPELINE["NVIDIA Morpheus Cyber Pipeline<br/><b>Real-Time Streaming Anomaly Classification</b>"]:::layer2
+        CUGRAPH_OPT["NVIDIA cuGraph & cuOpt<br/><b>GPU Causal Graph Reachability Engine</b>"]:::layer2
     end
 
     subgraph Hypervisor_Core ["Layer 3: A2Z Agentic Hypervisor Core (a2zsoc.com)"]
-        TOOL_INTERCEPTOR["In-Line Tool Interceptor & Proxy<br/>(Pre-Execution Hoare Invariant Validator)"]
-        BLAST_SENTINEL["Topological Blast-Radius Sentinel<br/>(Dynamic Attenuation Reachability Filter)"]
-        ROLLBACK_JOURNAL["Compensatory Rollback Journal<br/>(LIFO Hoare-Logic Transaction Log)"]
-        ACTION_LEDGER["ActionLedger Engine<br/>(SHA-256 Non-Repudiable Cryptographic Receipts)"]
-        EPISODIC_SOC["Associative Episodic SOC Memory<br/>(Vectorized Incident Post-Mortem Index)"]
+        TOOL_INTERCEPTOR["In-Line Tool Interceptor & Proxy<br/><b>Pre-Execution Hoare Invariant Validator</b>"]:::layer3
+        BLAST_SENTINEL["Topological Blast-Radius Sentinel<br/><b>Dynamic Attenuation Reachability Filter</b>"]:::layer3
+        ROLLBACK_JOURNAL["Compensatory Rollback Journal<br/><b>LIFO Hoare-Logic Transaction Log</b>"]:::layer3
+        ACTION_LEDGER["ActionLedger Engine<br/><b>SHA-256 Non-Repudiable Cryptographic Receipts</b>"]:::layer3
+        EPISODIC_SOC["Associative Episodic SOC Memory<br/><b>Vectorized Incident Post-Mortem Index</b>"]:::layer3
     end
 
     subgraph Hardware_Wire ["Layer 4: Sovereign Hardware & OS Enforcement"]
-        EBPF_PROBES["Linux Kernel eBPF Telemetry Probes<br/>(Process, File, & Socket Tracing)"]
-        BLUEFIELD_DPU["NVIDIA BlueField-3 DPU Zero-Trust Wire<br/>(Hardware-Isolated Enclave Execution)"]
-        TARGET_INFRA["Enterprise Infrastructure Fabric<br/>(Bare-Metal DGX H100, K8s, BGP Fabric)"]
-        ATOMIC_REVERSAL["Atomic Compensatory Rollback Engine<br/>(LIFO Undo DAG Actuator)"]
+        EBPF_PROBES["Linux Kernel eBPF Telemetry Probes<br/><b>Process, File, & Socket Tracing</b>"]:::layer4
+        BLUEFIELD_DPU["NVIDIA BlueField-3 DPU Zero-Trust Wire<br/><b>Hardware-Isolated Enclave Execution</b>"]:::layer4
+        TARGET_INFRA["Enterprise Infrastructure Fabric<br/><b>Bare-Metal DGX H100, K8s, BGP Fabric</b>"]:::layer4
+        ATOMIC_REVERSAL["Atomic Compensatory Rollback Engine<br/><b>LIFO Undo DAG Actuator</b>"]:::layer4
     end
 
     AGENT_INPUT --> AGENT_CORE
@@ -92,15 +125,15 @@ flowchart TD
     TOOL_INTERCEPTOR <==> BLAST_SENTINEL
     BLAST_SENTINEL <==> CUGRAPH_OPT
 
-    TOOL_INTERCEPTOR -- "Pre-Conditions Valid" --> ROLLBACK_JOURNAL
+    TOOL_INTERCEPTOR -- Pre-Conditions Valid --> ROLLBACK_JOURNAL
     ROLLBACK_JOURNAL --> EBPF_PROBES
     EBPF_PROBES --> TARGET_INFRA
-    EBPF_PROBES -. "Streaming Telemetry" .-> MORPHEUS_PIPELINE
+    EBPF_PROBES -. Streaming Telemetry .-> MORPHEUS_PIPELINE
     ROLLBACK_JOURNAL --> ACTION_LEDGER
     ACTION_LEDGER --> BLUEFIELD_DPU
 
-    TOOL_INTERCEPTOR -. "Attack / Breach Tripped" .-> ATOMIC_REVERSAL
-    ATOMIC_REVERSAL -- "100% LIFO Reversal Execution" --> TARGET_INFRA
+    TOOL_INTERCEPTOR -. Attack / Breach Tripped .-> ATOMIC_REVERSAL
+    ATOMIC_REVERSAL -- 100% LIFO Reversal Execution --> TARGET_INFRA
     ATOMIC_REVERSAL --> EPISODIC_SOC
 ```
 
@@ -111,7 +144,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Attacker as Indirect Prompt Injection (Log/File Payload)
+    actor Attacker as Indirect Prompt Injection (Poisoned Context)
     participant Agent as Autonomous Agent Core
     participant Interceptor as A2Z Tool Interceptor
     participant NeMo as NVIDIA NeMo & NIM Engine
@@ -120,8 +153,8 @@ sequenceDiagram
     participant Host as Linux Kernel / eBPF / BlueField DPU
     participant Ledger as ActionLedger Receipt Storage
 
-    Attacker->>Agent: Poisoned Log Entry: "DROP TABLE users; rm -rf /"
-    Agent->>Interceptor: Request Tool Call: execute_sql("DROP TABLE users")
+    Attacker->>Agent: Poisoned Payload: DROP TABLE users && rm -rf /
+    Agent->>Interceptor: Request Tool Call: execute_sql(DROP TABLE users)
     
     Interceptor->>NeMo: Inspect Intent & Semantic Safety (Sub-15ms)
     alt Destructive Signature or Injection Detected
@@ -133,7 +166,7 @@ sequenceDiagram
     else Benign Mutating Action
         Interceptor->>Sentinel: Calculate Blast Radius Reachability
         Sentinel-->>Interceptor: Blast Radius Safe (Impact: 4.2 < Ceiling: 25.0)
-        Interceptor->>Journal: Log TransactionalAction (with Inverse InverseTool)
+        Interceptor->>Journal: Log TransactionalAction (with Inverse Action)
         Interceptor->>Host: Dispatch Mutation via eBPF / DPU
         Host-->>Interceptor: Execution Verified
         Interceptor->>Ledger: Emit SHA-256 ActionReceipt (fde-bounty-snr)
@@ -164,8 +197,8 @@ stateDiagram-v2
         ComputeReachability --> ThresholdCheck: Graph Evaluated
     }
 
-    ThresholdCheck --> TransactionJournaled: Reachability <= MaxBlast
-    ThresholdCheck --> BlastBreachDetected: Reachability > MaxBlast
+    ThresholdCheck --> TransactionJournaled: Reachability within Threshold
+    ThresholdCheck --> BlastBreachDetected: Reachability exceeds Ceiling
 
     state TransactionJournaled {
         [*] --> SynthesizeInverse
@@ -200,25 +233,30 @@ A core flaw of user-space Python agent security frameworks is that **an agent es
 
 ```mermaid
 flowchart LR
-    subgraph Host_Compute ["Host Server / DGX H100 Node (Untrusted Agent Domain)"]
-        AGENT_POD["Autonomous AI Agent Container<br/>(Compromised or Rogue Process)"]
-        HOST_KERNEL["Host OS Kernel<br/>(Potential Privilege Escalation Target)"]
+    classDef untrustedHost fill:#fef2f2,stroke:#ef4444,stroke-width:1.5px,color:#991b1b;
+    classDef hardwareBarrier fill:#f1f5f9,stroke:#64748b,stroke-width:2px,stroke-dasharray: 5 5,color:#334155;
+    classDef trustedDPU fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    classDef vaultNode fill:#f5f3ff,stroke:#7c3aed,stroke-width:1.5px,color:#4c1d95;
+
+    subgraph Host_Compute ["Untrusted Host Server Domain: DGX H100 Node"]
+        AGENT_POD["Autonomous AI Agent Container<br/><b>Compromised or Rogue Process</b>"]:::untrustedHost
+        HOST_KERNEL["Host OS Kernel<br/><b>Potential Privilege Escalation Target</b>"]:::untrustedHost
         AGENT_POD --> HOST_KERNEL
     end
 
-    subgraph PCIe_Bus ["PCIe Gen 5 / Hardware Boundary"]
-        PCIE["Hardware Physical Isolation Barrier"]
+    subgraph PCIe_Bus ["Physical PCIe Gen 5 Boundary"]
+        PCIE["Hardware DMA & Bus Isolation Barrier"]:::hardwareBarrier
     end
 
-    subgraph BlueField_DPU ["NVIDIA BlueField-3 DPU (Trusted Security Domain)"]
-        DOCA["NVIDIA DOCA Flow & eBPF Engine"]
-        HYPERVISOR_DAEMON["A2Z Hypervisor Hardware Daemon"]
-        ISOLATED_LEDGER["Immutable ActionLedger SHA-256 Vault"]
+    subgraph BlueField_DPU ["NVIDIA BlueField-3 DPU: Trusted Hardware Domain"]
+        DOCA["NVIDIA DOCA Flow & eBPF Engine"]:::trustedDPU
+        HYPERVISOR_DAEMON["A2Z Hypervisor Sovereign Daemon"]:::trustedDPU
+        ISOLATED_LEDGER["Immutable ActionLedger SHA-256 Vault<br/><b>Onboard NVMe Storage</b>"]:::vaultNode
         DOCA --> HYPERVISOR_DAEMON
         HYPERVISOR_DAEMON --> ISOLATED_LEDGER
     end
 
-    HOST_KERNEL == "All Network & Storage I/O" ==> PCIE
+    HOST_KERNEL == In-Flight Network and Storage IO ==> PCIE
     PCIE ==> DOCA
 ```
 
